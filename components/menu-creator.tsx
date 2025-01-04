@@ -177,7 +177,7 @@ export function MenuCreator() {
             <div className="mt-8">
               <Progress value={progress} className="mb-2" />
               <p className="text-center text-sm text-gray-500">
-                {t.analyzingImage} {Math.round(progress)}%
+                {t.analyzingImage}
               </p>
             </div>
           )}

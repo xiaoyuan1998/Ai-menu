@@ -1,9 +1,6 @@
 import { NextResponse } from 'next/server'
 import OpenAI from 'openai'
 import { fal } from "@fal-ai/client"
-import { writeFile } from 'fs/promises'
-import path from 'path'
-import crypto from 'crypto'
 import { getPrompt } from '@/lib/prompts'
 
 // 创建 OpenRouter 客户端用于生成描述
@@ -119,36 +116,14 @@ export async function POST(req: Request) {
     console.log('Step 4: Generating image')
     const imageResult = await generateImageWithFalAi(finalPrompt)
     console.log('Image generation result:', JSON.stringify(imageResult, null, 2))
-    
-    console.log('Step 5: Saving image to disk')
-    // 生成唯一的文件名
-    const fileName = `${crypto.randomBytes(16).toString('hex')}.jpg`
-    const filePath = path.join(process.cwd(), 'public', 'generated-images', fileName)
-    
-    // 检查 imageResult 的结构
-    console.log('Image result structure:', {
-      hasImages: !!imageResult.images,
-      imageKeys: Object.keys(imageResult),
-      firstImage: imageResult.images?.[0],
-    })
-    
-    // 从 base64 转换并保存图片
-    if (!imageResult.images?.[0]?.url) {
-      throw new Error('Invalid image result structure: ' + JSON.stringify(imageResult))
-    }
-    
-    const imageUrl = imageResult.images[0].url
-    const imageResponse = await fetch(imageUrl)
-    const buffer = await imageResponse.arrayBuffer()
-    await writeFile(filePath, Buffer.from(buffer))
-    
-    console.log('Step 6: Preparing response')
+
+    console.log('Step 5: Preparing response')
     console.log('Time elapsed:', Date.now() - startTime, 'ms')
 
-    // 创建响应对象，包含图片URL
+    // 创建响应对象，直接使用 Fal.AI URL
     const responseData = { 
       ...imageResult,
-      imageUrl: `/generated-images/${fileName}`,
+      imageUrl: imageResult.images[0].url, // 直接使用 Fal.AI 返回的 URL
       model: "flux-pro-v1.1-ultra",
       generationTime: Date.now() - startTime
     }
@@ -157,7 +132,7 @@ export async function POST(req: Request) {
     // 使用 NextResponse.json() 创建响应
     const response = NextResponse.json(responseData)
     console.log('Response headers:', Object.fromEntries(response.headers.entries()))
-    console.log('Step 7: Sending response')
+    console.log('Step 6: Sending response')
     return response
 
   } catch (error: any) {
