@@ -32,12 +32,14 @@ export default function MenuCreator() {
     
     for (const file of acceptedFiles) {
       console.log('Processing file:', file.name)
-      try {
-        // 创建一个临时的URL来显示上传的图片
-        const imageUrl = URL.createObjectURL(file)
-        console.log('Created temporary URL for original image:', imageUrl)
+      const processFile = async (file: File) => {
+        const reader = new FileReader()
+        reader.readAsDataURL(file)
         
-        // 创建一个新的菜品项，等待AI识别
+        const imageUrl = await new Promise<string>((resolve) => {
+          reader.onload = () => resolve(reader.result as string)
+        })
+        
         const newItem: MenuItem = {
           id: Date.now().toString(),
           name: '识别中...',
@@ -48,94 +50,97 @@ export default function MenuCreator() {
         }
         console.log('Created new menu item:', newItem)
         
-        setMenuItems(prev => [...prev, newItem])
-        
-        // 上传图片并获取AI识别结果
-        console.log('Uploading image for analysis')
-        const formData = new FormData()
-        formData.append('image', file)
-        
-        const response = await fetch('/api/analyze-image', {
-          method: 'POST',
-          body: formData
-        })
-        
-        if (!response.ok) {
-          throw new Error(`Failed to analyze image: ${response.statusText}`)
-        }
-        
-        const data = await response.json()
-        console.log('Analysis response:', data)
-        
-        // 更新菜品信息
-        console.log('Updating menu item with analysis results')
-        setMenuItems(items =>
-          items.map(item =>
-            item.id === newItem.id
-              ? {
-                  ...item,
-                  name: data.name,
-                  description: data.description,
-                  isGenerating: true
-                }
-              : item
+        try {
+          setMenuItems(prev => [...prev, newItem])
+          
+          // 上传图片并获取AI识别结果
+          console.log('Uploading image for analysis')
+          const formData = new FormData()
+          formData.append('image', file)
+          
+          const response = await fetch('/api/analyze-image', {
+            method: 'POST',
+            body: formData
+          })
+          
+          if (!response.ok) {
+            throw new Error(`Failed to analyze image: ${response.statusText}`)
+          }
+          
+          const data = await response.json()
+          console.log('Analysis response:', data)
+          
+          // 更新菜品信息
+          console.log('Updating menu item with analysis results')
+          setMenuItems(items =>
+            items.map(item =>
+              item.id === newItem.id
+                ? {
+                    ...item,
+                    name: data.name,
+                    description: data.description,
+                    isGenerating: true
+                  }
+                : item
+            )
           )
-        )
-        
-        // 生成AI图片
-        console.log('Requesting AI image generation')
-        const requestBody = {
-          name: data.name,
-          description: data.description
-        }
-        console.log('Image generation request:', requestBody)
-        
-        const imageResponse = await fetch('/api/generate-image', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(requestBody),
-        })
-        
-        if (!imageResponse.ok) {
-          throw new Error(`Failed to generate image: ${imageResponse.statusText}`)
-        }
-        
-        const imageData = await imageResponse.json()
-        console.log('Image generation response:', imageData)
-        
-        // 更新生成的图片
-        console.log('Updating menu item with generated image')
-        setMenuItems(items =>
-          items.map(item =>
-            item.id === newItem.id
-              ? {
-                  ...item,
-                  imageUrl: imageData.imageData,
-                  format: imageData.format,
-                  contentType: imageData.contentType,
-                  isGenerating: false
-                }
-              : item
+          
+          // 生成AI图片
+          console.log('Requesting AI image generation')
+          const requestBody = {
+            name: data.name,
+            description: data.description
+          }
+          console.log('Image generation request:', requestBody)
+          
+          const imageResponse = await fetch('/api/generate-image', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(requestBody),
+          })
+          
+          if (!imageResponse.ok) {
+            throw new Error(`Failed to generate image: ${imageResponse.statusText}`)
+          }
+          
+          const imageData = await imageResponse.json()
+          console.log('Image generation response:', imageData)
+          
+          // 更新生成的图片
+          console.log('Updating menu item with generated image')
+          setMenuItems(items =>
+            items.map(item =>
+              item.id === newItem.id
+                ? {
+                    ...item,
+                    imageUrl: imageData.imageData,
+                    format: imageData.format,
+                    contentType: imageData.contentType,
+                    isGenerating: false
+                  }
+                : item
+            )
           )
-        )
-        
-        setUploadProgress((prev) => prev + (100 / acceptedFiles.length))
-      } catch (error) {
-        console.error('Error processing image:', error)
-        console.error('Error details:', {
-          message: error instanceof Error ? error.message : String(error),
-          stack: error instanceof Error ? error.stack : undefined
-        })
-        
-        // 在错误时更新状态
-        setMenuItems(items =>
-          items.map(item =>
-            item.id === newItem.id
-              ? { ...item, isGenerating: false }
-              : item
+          
+          setUploadProgress((prev) => prev + (100 / acceptedFiles.length))
+        } catch (error) {
+          console.error('Error processing image:', error)
+          console.error('Error details:', {
+            message: error instanceof Error ? error.message : String(error),
+            stack: error instanceof Error ? error.stack : undefined
+          })
+          
+          // 在错误时更新状态
+          setMenuItems(items =>
+            items.map(item =>
+              item.id === newItem.id
+                ? { ...item, isGenerating: false }
+                : item
+            )
           )
-        )
+        }
       }
+      await processFile(file)
     }
     
     setIsProcessing(false)

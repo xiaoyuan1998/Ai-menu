@@ -31,8 +31,10 @@ async function generateImageWithFalAi(prompt: string) {
         negative_prompt: "blurry, bad quality, distorted, deformed",
         num_inference_steps: 50,
         guidance_scale: 7.5,
-        width: 1024,
-        height: 1024,
+        image_size: {
+          width: 1024,
+          height: 1024
+        }
       },
       pollInterval: 1000, // 每秒检查一次结果
       logs: true, // 启用日志

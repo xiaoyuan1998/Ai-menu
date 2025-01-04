@@ -4,11 +4,12 @@ import { z } from 'zod'
 
 // 创建 OpenRouter 客户端
 const openrouter = new OpenAI({
-  baseURL: "https://openrouter.ai/api/v1",
-  apiKey: process.env.OPENROUTER_API_KEY!,
+  apiKey: process.env.OPENROUTER_API_KEY || '',
+  baseURL: 'https://openrouter.ai/api/v1',
   defaultHeaders: {
     "HTTP-Referer": process.env.APP_URL || "http://localhost:3000",
-    "X-Title": "AI-Menu-Generator"
+    "X-Title": "AI-Menu-Generator",
+    "Content-Type": "application/json"
   }
 })
 
@@ -49,21 +50,21 @@ export async function POST(req: Request) {
     const base64Image = Buffer.from(imageBuffer).toString('base64')
   
     const requestData = {
-      model: "openai/gpt-4o-mini",
+      model: "anthropic/claude-3.5-sonnet-20240620",
       messages: [
         {
-          role: 'system',
-          content: '这是一个饭店的菜单。请提取菜单中的菜品名称，并以JSON格式返回结果。返回格式必须是: {"dishes": [{"name": "菜品名称", "type": "菜品类型", "description": "描述"}]}。确保返回的是有效的JSON格式。'
+          role: 'system' as const,
+          content: '这是一个饭店的菜单。请提取菜单中的菜品名称，并以JSON格式返回结果。返回格式必须是: {"dishes": [{"name": "菜品名称", "type": "菜品类型", "description": "描述"}]}。确保返回的是有效的JSON格式并且使用用菜单中的语言。'
         },
         {
-          role: 'user',
+          role: 'user' as const,
           content: [
             { 
-              type: 'text', 
-              text: '请分析这张图片中的所有菜品，列出它们的名称、类型和描述。必须返回JSON格式。' 
+              type: 'text' as const, 
+              text: '请分析这张图片中的所有菜品，列出它们的名称、类型和描述。必须返回JSON格式。用菜单中的语言' 
             },
             { 
-              type: 'image_url', 
+              type: 'image_url' as const, 
               image_url: { 
                 url: `data:${image.type || 'image/jpeg'};base64,${base64Image}`
               } 
@@ -84,54 +85,25 @@ export async function POST(req: Request) {
         
         const response = await openrouter.chat.completions.create({
           ...requestData,
-          stream: false,
-          headers: {
-            'HTTP-Referer': process.env.APP_URL || 'http://localhost:3000',
-            'X-Title': 'AI-Menu-Generator'
-          }
+          stream: false
         })
 
         // 打印原始响应信息
         console.log('Complete API Response:', JSON.stringify(response, null, 2))
         
-        if (response.error) {
-          console.error('API returned error:', response.error)
-          throw new Error(`API error: ${response.error.message || 'Unknown error'}`)
-        }
-        
-        console.log('API Response:', {
-          status: response.choices?.length ? 'has choices' : 'no choices',
-          model: response.model,
-          usage: response.usage,
-          object: response.object,
-          created: response.created
-        })
-
         if (!response.choices || response.choices.length === 0) {
-          console.error('API Error Response:', {
-            status: 'no choices',
-            statusText: 'No choices in response',
-            error: 'No choices in response'
-          })
-          throw new Error('No choices in response')
+          throw new Error('No response choices available')
         }
 
-        const content = response.choices[0].message?.content
-        if (!content) {
-          console.error('API Error Response:', {
-            status: 'no content',
-            statusText: 'No content in response',
-            error: 'No content in response'
-          })
+        const result = response.choices[0].message.content
+        if (!result) {
           throw new Error('No content in response')
         }
-
-        console.log('Raw response content:', content)
 
         try {
           // 提取 JSON 字符串
           console.log('Extracting JSON from response')
-          const jsonMatch = content.match(/\{[\s\S]*\}/)
+          const jsonMatch = result.match(/\{[\s\S]*\}/)
           if (!jsonMatch) {
             console.error('No JSON pattern found in content')
             throw new Error('No JSON found in response')
@@ -150,7 +122,7 @@ export async function POST(req: Request) {
           return NextResponse.json(validatedData)
         } catch (e) {
           console.error('Failed to parse or validate JSON response:', e)
-          console.error('Content that failed to parse:', content)
+          console.error('Content that failed to parse:', result)
           throw e
         }
       } catch (error) {

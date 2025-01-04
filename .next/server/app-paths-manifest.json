@@ -1,5 +1,8 @@
 {
-  "/page": "app/page.js",
+  "/_not-found": "app/_not-found.js",
+  "/api/analyze-image/route": "app/api/analyze-image/route.js",
+  "/api/generate-image/route": "app/api/generate-image/route.js",
+  "/api/unsplash/route": "app/api/unsplash/route.js",
   "/menu-creator/page": "app/menu-creator/page.js",
-  "/api/generate-image/route": "app/api/generate-image/route.js"
+  "/page": "app/page.js"
 }
